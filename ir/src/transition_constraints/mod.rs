@@ -1,5 +1,5 @@
 use super::{SemanticError, SymbolTable, TraceSegment};
-use parser::ast;
+use parser::ast::TransitionStmt;
 
 mod degree;
 pub use degree::TransitionConstraintDegree;
@@ -81,23 +81,28 @@ impl TransitionConstraints {
     pub(super) fn insert(
         &mut self,
         symbol_table: &SymbolTable,
-        constraint: &ast::TransitionConstraint,
+        stmt: &TransitionStmt,
     ) -> Result<(), SemanticError> {
-        let expr = constraint.expr();
+        match stmt {
+            TransitionStmt::Constraint(constraint) => {
+                let expr = constraint.expr();
 
-        // add it to the transition constraints graph and get its entry index.
-        let (trace_segment, root_index) = self.graph.insert_expr(symbol_table, expr)?;
+                // add it to the transition constraints graph and get its entry index.
+                let (trace_segment, root_index) = self.graph.insert_expr(symbol_table, expr)?;
 
-        // the constraint should not be against an undeclared trace segment.
-        if symbol_table.num_trace_segments() <= trace_segment.into() {
-            return Err(SemanticError::InvalidConstraint(
-                "Constraint against undeclared trace segment".to_string(),
-            ));
+                // the constraint should not be against an undeclared trace segment.
+                if symbol_table.num_trace_segments() <= trace_segment.into() {
+                    return Err(SemanticError::InvalidConstraint(
+                        "Constraint against undeclared trace segment".to_string(),
+                    ));
+                }
+
+                // add the transition constraint to the appropriate set of constraints.
+                self.constraint_roots[trace_segment as usize].push(root_index);
+
+                Ok(())
+            }
+            TransitionStmt::Variable(_) => todo!(),
         }
-
-        // add the transition constraint to the appropriate set of constraints.
-        self.constraint_roots[trace_segment as usize].push(root_index);
-
-        Ok(())
     }
 }

@@ -1,7 +1,6 @@
 pub use parser::ast::{
     self, boundary_constraints::BoundaryExpr, constants::Constant, Identifier, PublicInput,
 };
-use parser::ast::{BoundaryStmt, TransitionStmt};
 use std::collections::BTreeMap;
 
 mod symbol_table;
@@ -96,23 +95,13 @@ impl AirIR {
             match section {
                 ast::SourceSection::BoundaryConstraints(stmts) => {
                     for stmt in stmts {
-                        match stmt {
-                            BoundaryStmt::Constraint(constraint) => {
-                                boundary_constraints.insert(&symbol_table, constraint)?
-                            }
-                            BoundaryStmt::Variable(_) => todo!(),
-                        }
+                        boundary_constraints.insert(&symbol_table, stmt)?
                     }
                     validator.exists("boundary_constraints");
                 }
                 ast::SourceSection::TransitionConstraints(stmts) => {
                     for stmt in stmts {
-                        match stmt {
-                            TransitionStmt::Constraint(constraint) => {
-                                transition_constraints.insert(&symbol_table, constraint)?
-                            }
-                            TransitionStmt::Variable(_) => todo!(),
-                        }
+                        transition_constraints.insert(&symbol_table, stmt)?
                     }
                     validator.exists("transition_constraints");
                 }

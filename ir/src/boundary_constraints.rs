@@ -1,5 +1,5 @@
 use super::{BTreeMap, BoundaryExpr, IdentifierType, SemanticError, SymbolTable};
-use parser::ast;
+use parser::ast::{self, BoundaryStmt, BoundaryVariableType};
 
 // BOUNDARY CONSTRAINTS
 // ================================================================================================
@@ -23,6 +23,7 @@ pub(crate) struct BoundaryConstraints {
     /// The boundary constraints to be applied at the last row of the aux trace, with the trace
     /// column index as the key, and the expression as the value.
     aux_last: BTreeMap<usize, BoundaryExpr>,
+    boundary_stmts: Vec<BoundaryStmt>,
 }
 
 impl BoundaryConstraints {
@@ -58,6 +59,10 @@ impl BoundaryConstraints {
         self.aux_last.iter().map(|(k, v)| (*k, v)).collect()
     }
 
+    pub fn boundary_stmts(&self) -> &Vec<BoundaryStmt> {
+        &self.boundary_stmts
+    }
+
     // --- MUTATORS -------------------------------------------------------------------------------
 
     /// Add a boundary constraint from the AST to the list of constraints for its specified
@@ -72,45 +77,67 @@ impl BoundaryConstraints {
     pub(super) fn insert(
         &mut self,
         symbol_table: &SymbolTable,
-        constraint: &ast::BoundaryConstraint,
+        stmt: &BoundaryStmt,
     ) -> Result<(), SemanticError> {
-        // validate the expression
-        let expr = constraint.value();
-        validate_expression(symbol_table, &expr)?;
-
-        // add the constraint to the specified boundary for the specified trace
-        let col_type = symbol_table.get_type(constraint.column())?;
-        let result = match col_type {
-            IdentifierType::TraceColumn(column) => match column.trace_segment() {
-                0 => match constraint.boundary() {
-                    ast::Boundary::First => self.main_first.insert(column.col_idx(), expr),
-                    ast::Boundary::Last => self.main_last.insert(column.col_idx(), expr),
-                },
-                1 => match constraint.boundary() {
-                    ast::Boundary::First => self.aux_first.insert(column.col_idx(), expr),
-                    ast::Boundary::Last => self.aux_last.insert(column.col_idx(), expr),
-                },
-                _ => unimplemented!(),
-            },
-            _ => {
-                return Err(SemanticError::InvalidUsage(format!(
-                    "Identifier {} was declared as a {}, not as a trace column",
-                    constraint.column(),
-                    col_type
-                )));
+        match stmt {
+            BoundaryStmt::Variable(boundary_variable) => {
+                // validate the expressions inside the variable's values
+                match boundary_variable.value() {
+                    BoundaryVariableType::Scalar(expr) => validate_expression(symbol_table, expr)?,
+                    BoundaryVariableType::Vector(vector) => {
+                        for expr in vector {
+                            validate_expression(symbol_table, expr)?;
+                        }
+                    }
+                    BoundaryVariableType::Matrix(matrix) => {
+                        for row in matrix {
+                            for expr in row {
+                                validate_expression(symbol_table, expr)?;
+                            }
+                        }
+                    }
+                }
             }
-        };
+            BoundaryStmt::Constraint(constraint) => {
+                // validate the expression
+                let expr = constraint.value();
+                validate_expression(symbol_table, &expr)?;
 
-        // raise an error if multiple constraints were applied to the same boundary
-        if result.is_some() {
-            return Err(SemanticError::TooManyConstraints(format!(
-                "A boundary constraint was already defined for {} '{}' at the {}",
-                col_type,
-                constraint.column(),
-                constraint.boundary()
-            )));
+                // add the constraint to the specified boundary for the specified trace
+                let col_type = symbol_table.get_type(constraint.column())?;
+                let result = match col_type {
+                    IdentifierType::TraceColumn(column) => match column.trace_segment() {
+                        0 => match constraint.boundary() {
+                            ast::Boundary::First => self.main_first.insert(column.col_idx(), expr),
+                            ast::Boundary::Last => self.main_last.insert(column.col_idx(), expr),
+                        },
+                        1 => match constraint.boundary() {
+                            ast::Boundary::First => self.aux_first.insert(column.col_idx(), expr),
+                            ast::Boundary::Last => self.aux_last.insert(column.col_idx(), expr),
+                        },
+                        _ => unimplemented!(),
+                    },
+                    _ => {
+                        return Err(SemanticError::InvalidUsage(format!(
+                            "Identifier {} was declared as a {}, not as a trace column",
+                            constraint.column(),
+                            col_type
+                        )));
+                    }
+                };
+
+                // raise an error if multiple constraints were applied to the same boundary
+                if result.is_some() {
+                    return Err(SemanticError::TooManyConstraints(format!(
+                        "A boundary constraint was already defined for {} '{}' at the {}",
+                        col_type,
+                        constraint.column(),
+                        constraint.boundary()
+                    )));
+                }
+            }
         }
-
+        self.boundary_stmts.push(stmt.clone());
         Ok(())
     }
 }

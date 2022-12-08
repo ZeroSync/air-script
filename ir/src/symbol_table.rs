@@ -4,7 +4,8 @@ use super::{
 };
 use parser::ast::{
     constants::{Constant, ConstantType},
-    Identifier, MatrixAccess, PeriodicColumn, PublicInput, VectorAccess,
+    BoundaryVariableType, Identifier, MatrixAccess, PeriodicColumn, PublicInput,
+    TransitionVariableType, VectorAccess,
 };
 use std::fmt::Display;
 
@@ -12,6 +13,8 @@ use std::fmt::Display;
 pub(super) enum IdentifierType {
     /// an identifier for a constant, containing it's type and value
     Constant(ConstantType),
+    BoundaryVariable(BoundaryVariableType),
+    TransitionVariable(TransitionVariableType),
     /// an identifier for a trace column, containing trace column information with its trace segment
     /// and the index of the column in that segment.
     TraceColumn(TraceColumn),
@@ -26,6 +29,8 @@ impl Display for IdentifierType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Constant(_) => write!(f, "Constant"),
+            Self::BoundaryVariable(_) => write!(f, "BoundaryVariable"),
+            Self::TransitionVariable(_) => write!(f, "TransitionVariable"),
             Self::PublicInput(_) => write!(f, "PublicInput"),
             Self::PeriodicColumn(_, _) => write!(f, "PeriodicColumn"),
             Self::TraceColumn(column) => {

@@ -4,14 +4,14 @@ use std::fmt::Display;
 // BOUNDARY CONSTRAINTS
 // ================================================================================================
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BoundaryStmt {
     Constraint(BoundaryConstraint),
     Variable(BoundaryVariable),
 }
 
 /// Stores the expression corresponding to the boundary constraint.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BoundaryConstraint {
     column: Identifier,
     boundary: Boundary,
@@ -78,7 +78,7 @@ pub enum BoundaryExpr {
     Exp(Box<BoundaryExpr>, u64),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BoundaryVariable {
     name: Identifier,
     value: BoundaryVariableType,
@@ -88,9 +88,17 @@ impl BoundaryVariable {
     pub fn new(name: Identifier, value: BoundaryVariableType) -> Self {
         Self { name, value }
     }
+
+    pub fn name(&self) -> &str {
+        self.name.name()
+    }
+
+    pub fn value(&self) -> &BoundaryVariableType {
+        &self.value
+    }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BoundaryVariableType {
     Scalar(BoundaryExpr),
     Vector(Vec<BoundaryExpr>),

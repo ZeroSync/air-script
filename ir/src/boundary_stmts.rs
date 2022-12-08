@@ -1,4 +1,4 @@
-use super::{BTreeMap, BoundaryExpr, IdentifierType, SemanticError, SymbolTable};
+use super::{BTreeMap, BoundaryExpr, IdentifierType, SemanticError, SymbolTable, TraceSegment};
 use parser::ast::{self, BoundaryStmt, BoundaryVariableType};
 
 // BOUNDARY CONSTRAINTS
@@ -10,53 +10,20 @@ use parser::ast::{self, BoundaryStmt, BoundaryVariableType};
 /// constraints sharing a boundary and column index.
 /// TODO: generalize the way we store boundary constraints for more trace segments.
 #[derive(Default, Debug)]
-pub(crate) struct BoundaryConstraints {
-    /// The boundary constraints to be applied at the first row of the main trace, with the trace
-    /// column index as the key, and the expression as the value.
-    main_first: BTreeMap<usize, BoundaryExpr>,
-    /// The boundary constraints to be applied at the last row of the main trace, with the trace
-    /// column index as the key, and the expression as the value.
-    main_last: BTreeMap<usize, BoundaryExpr>,
-    /// The boundary constraints to be applied at the first row of the aux trace, with the trace
-    /// column index as the key, and the expression as the value.
-    aux_first: BTreeMap<usize, BoundaryExpr>,
-    /// The boundary constraints to be applied at the last row of the aux trace, with the trace
-    /// column index as the key, and the expression as the value.
-    aux_last: BTreeMap<usize, BoundaryExpr>,
+pub(crate) struct BoundaryStmts {
+    boundary_constraints: Vec<(BTreeMap<usize, BoundaryExpr>, BTreeMap<usize, BoundaryExpr>)>,
     boundary_stmts: Vec<BoundaryStmt>,
+    num_boundary_constraints: Vec<(u8, u8)>
 }
 
-impl BoundaryConstraints {
+impl BoundaryStmts {
     // --- ACCESSORS ------------------------------------------------------------------------------
-
-    /// Returns the total number of boundary constraints for the main trace.
-    pub fn main_len(&self) -> usize {
-        self.main_first.len() + self.main_last.len()
+    pub fn num_constraints_first(&self, trace_segment: TraceSegment) -> usize {
+        self.boundary_constraints[trace_segment as usize].0.len()
     }
 
-    /// Returns all of the boundary constraints for the first row of the main trace.
-    pub fn main_first(&self) -> Vec<(usize, &BoundaryExpr)> {
-        self.main_first.iter().map(|(k, v)| (*k, v)).collect()
-    }
-
-    /// Returns all of the boundary constraints for the final row of the main trace.
-    pub fn main_last(&self) -> Vec<(usize, &BoundaryExpr)> {
-        self.main_last.iter().map(|(k, v)| (*k, v)).collect()
-    }
-
-    /// Returns the total number of boundary constraints for the aux trace.
-    pub fn aux_len(&self) -> usize {
-        self.aux_first.len() + self.aux_last.len()
-    }
-
-    /// Returns all of the boundary constraints for the first row of the aux trace.
-    pub fn aux_first(&self) -> Vec<(usize, &BoundaryExpr)> {
-        self.aux_first.iter().map(|(k, v)| (*k, v)).collect()
-    }
-
-    /// Returns all of the boundary constraints for the final row of the aux trace.
-    pub fn aux_last(&self) -> Vec<(usize, &BoundaryExpr)> {
-        self.aux_last.iter().map(|(k, v)| (*k, v)).collect()
+    pub fn num_constraints_last(&self, trace_segment: TraceSegment) -> usize {
+        self.boundary_constraints[trace_segment as usize].1.len()
     }
 
     pub fn boundary_stmts(&self) -> &Vec<BoundaryStmt> {
@@ -108,12 +75,12 @@ impl BoundaryConstraints {
                 let result = match col_type {
                     IdentifierType::TraceColumn(column) => match column.trace_segment() {
                         0 => match constraint.boundary() {
-                            ast::Boundary::First => self.main_first.insert(column.col_idx(), expr),
-                            ast::Boundary::Last => self.main_last.insert(column.col_idx(), expr),
+                            ast::Boundary::First => self.boundary_constraints[0].0.insert(column.col_idx(), expr),
+                            ast::Boundary::Last => self.boundary_constraints[0].1.insert(column.col_idx(), expr),
                         },
                         1 => match constraint.boundary() {
-                            ast::Boundary::First => self.aux_first.insert(column.col_idx(), expr),
-                            ast::Boundary::Last => self.aux_last.insert(column.col_idx(), expr),
+                            ast::Boundary::First => self.boundary_constraints[1].0.insert(column.col_idx(), expr),
+                            ast::Boundary::Last => self.boundary_constraints[1].1.insert(column.col_idx(), expr),
                         },
                         _ => unimplemented!(),
                     },

@@ -1,6 +1,6 @@
 use super::{AirIR, Impl};
 use ir::{
-    transition_constraints::{AlgebraicGraph, ConstantValue, Operation},
+    transition_stmts::{AlgebraicGraph, ConstantValue, Operation},
     NodeIndex,
 };
 

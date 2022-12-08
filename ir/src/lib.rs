@@ -1,3 +1,4 @@
+use parser::ast::{BoundaryStmt, TransitionStmt};
 pub use parser::ast::{
     self, boundary_constraints::BoundaryExpr, constants::Constant, Identifier, PublicInput,
 };
@@ -6,12 +7,12 @@ use std::collections::BTreeMap;
 mod symbol_table;
 use symbol_table::{IdentifierType, SymbolTable};
 
-pub mod boundary_constraints;
-use boundary_constraints::BoundaryConstraints;
+pub mod boundary_stmts;
+use boundary_stmts::BoundaryStmts;
 
-pub mod transition_constraints;
-use transition_constraints::{AlgebraicGraph, TransitionConstraints, MIN_CYCLE_LENGTH};
-pub use transition_constraints::{NodeIndex, TransitionConstraintDegree};
+pub mod transition_stmts;
+use transition_stmts::{AlgebraicGraph, TransitionStmts, MIN_CYCLE_LENGTH};
+pub use transition_stmts::{NodeIndex, TransitionConstraintDegree};
 
 mod error;
 use error::SemanticError;
@@ -38,8 +39,8 @@ pub struct AirIR {
     constants: Constants,
     public_inputs: PublicInputs,
     periodic_columns: PeriodicColumns,
-    boundary_constraints: BoundaryConstraints,
-    transition_constraints: TransitionConstraints,
+    boundary_stmts: BoundaryStmts,
+    transition_stmts: TransitionStmts,
 }
 
 impl AirIR {
@@ -88,20 +89,19 @@ impl AirIR {
         }
 
         // then process the constraints & validate them against the symbol table.
-        let mut boundary_constraints = BoundaryConstraints::default();
-        let mut transition_constraints =
-            TransitionConstraints::new(symbol_table.num_trace_segments());
+        let mut boundary_stmts = BoundaryStmts::default();
+        let mut transition_stmts = TransitionStmts::default();
         for section in source {
             match section {
                 ast::SourceSection::BoundaryConstraints(stmts) => {
                     for stmt in stmts {
-                        boundary_constraints.insert(&symbol_table, stmt)?
+                        boundary_stmts.insert(&symbol_table, stmt)?
                     }
                     validator.exists("boundary_constraints");
                 }
                 ast::SourceSection::TransitionConstraints(stmts) => {
                     for stmt in stmts {
-                        transition_constraints.insert(&symbol_table, stmt)?
+                        transition_stmts.insert(&symbol_table, stmt)?
                     }
                     validator.exists("transition_constraints");
                 }
@@ -119,8 +119,8 @@ impl AirIR {
             constants,
             public_inputs,
             periodic_columns,
-            boundary_constraints,
-            transition_constraints,
+            boundary_stmts,
+            transition_stmts,
         })
     }
 
@@ -145,27 +145,11 @@ impl AirIR {
     // --- PUBLIC ACCESSORS FOR BOUNDARY CONSTRAINTS ----------------------------------------------
 
     pub fn num_main_assertions(&self) -> usize {
-        self.boundary_constraints.main_len()
-    }
-
-    pub fn main_first_boundary_constraints(&self) -> Vec<(usize, &BoundaryExpr)> {
-        self.boundary_constraints.main_first()
-    }
-
-    pub fn main_last_boundary_constraints(&self) -> Vec<(usize, &BoundaryExpr)> {
-        self.boundary_constraints.main_last()
+        self.boundary_stmts.num_constraints_first(0) + self.boundary_stmts.num_constraints_last(0)
     }
 
     pub fn num_aux_assertions(&self) -> usize {
-        self.boundary_constraints.aux_len()
-    }
-
-    pub fn aux_first_boundary_constraints(&self) -> Vec<(usize, &BoundaryExpr)> {
-        self.boundary_constraints.aux_first()
-    }
-
-    pub fn aux_last_boundary_constraints(&self) -> Vec<(usize, &BoundaryExpr)> {
-        self.boundary_constraints.aux_last()
+        self.boundary_stmts.num_constraints_first(1) + self.boundary_stmts.num_constraints_last(1)
     }
 
     // --- PUBLIC ACCESSORS FOR TRANSITION CONSTRAINTS --------------------------------------------
@@ -174,15 +158,15 @@ impl AirIR {
         &self,
         trace_segment: TraceSegment,
     ) -> Vec<TransitionConstraintDegree> {
-        self.transition_constraints
+        self.transition_stmts
             .constraint_degrees(trace_segment)
     }
 
     pub fn transition_constraints(&self, trace_segment: TraceSegment) -> &[NodeIndex] {
-        self.transition_constraints.constraints(trace_segment)
+        self.transition_stmts.transition_constraints(trace_segment)
     }
 
     pub fn transition_graph(&self) -> &AlgebraicGraph {
-        self.transition_constraints.graph()
+        self.transition_stmts.graph()
     }
 }

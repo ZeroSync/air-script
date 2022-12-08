@@ -16,7 +16,7 @@ pub const MIN_CYCLE_LENGTH: usize = 2;
 // ================================================================================================
 
 #[derive(Default, Debug)]
-pub(super) struct TransitionConstraints {
+pub(super) struct TransitionStmts {
     /// Transition constraints against the execution trace, where each index contains a vector of
     /// the constraint roots for all constraints against that segment of the trace. For example,
     /// constraints against the main execution trace, which is trace segment 0, will be specified by
@@ -28,7 +28,7 @@ pub(super) struct TransitionConstraints {
     graph: AlgebraicGraph,
 }
 
-impl TransitionConstraints {
+impl TransitionStmts {
     // --- CONSTRUCTOR ----------------------------------------------------------------------------
 
     pub fn new(num_trace_segments: usize) -> Self {
@@ -59,7 +59,7 @@ impl TransitionConstraints {
     /// Returns all transition constraints against the specified trace segment as a vector of
     /// [NodeIndex] where each index is the tip of the subgraph representing the constraint within
     /// the [AlgebraicGraph].
-    pub fn constraints(&self, trace_segment: TraceSegment) -> &[NodeIndex] {
+    pub fn transition_constraints(&self, trace_segment: TraceSegment) -> &[NodeIndex] {
         if self.constraint_roots.len() <= trace_segment.into() {
             return &[];
         }
